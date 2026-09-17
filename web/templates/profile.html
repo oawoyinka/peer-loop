@@ -12,6 +12,8 @@
 	<main class="container">
 		<h1>{{.User.Name}}</h1>
 		<p class="muted">{{.User.Email}}</p>
+		{{if .Success}}<p class="success">{{.Success}}</p>{{end}}
+		{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
 
 		<section class="card">
 			<h2>Bio</h2>

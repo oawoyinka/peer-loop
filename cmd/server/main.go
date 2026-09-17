@@ -35,6 +35,7 @@ func main() {
 	authH := handlers.NewAuthHandlers(userStore, sessions, templates)
 	profileH := handlers.NewProfileHandlers(userStore, skillStore, templates)
 	matchH := handlers.NewMatchHandlers(skillStore, templates)
+	dashboardH := handlers.NewDashboardHandlers(userStore, skillStore, templates)
 
 	requireAuth := middleware.RequireAuth(sessions)
 
@@ -45,7 +46,7 @@ func main() {
 
 	// Public routes.
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {
-		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 	})
 	mux.HandleFunc("GET /register", authH.RegisterPage)
 	mux.HandleFunc("POST /register", authH.Register)
@@ -54,6 +55,7 @@ func main() {
 	mux.HandleFunc("GET /logout", authH.Logout)
 
 	// Authenticated routes.
+	mux.HandleFunc("GET /dashboard", requireAuth(dashboardH.View))
 	mux.HandleFunc("GET /profile", requireAuth(profileH.View))
 	mux.HandleFunc("POST /profile/bio", requireAuth(profileH.UpdateBio))
 	mux.HandleFunc("POST /profile/skills", requireAuth(profileH.AddSkill))

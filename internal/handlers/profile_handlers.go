@@ -48,9 +48,18 @@ func (h *ProfileHandlers) View(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	render(w, h.templates, "profile.html", profilePage{
-		User: user, MySkills: mySkills, AllSkills: allSkills,
-	})
+	page := profilePage{User: user, MySkills: mySkills, AllSkills: allSkills}
+	switch r.URL.Query().Get("saved") {
+	case "bio":
+		page.Success = "Bio saved."
+	case "skill":
+		page.Success = "Skill saved."
+	}
+	if r.URL.Query().Get("error") == "badskill" {
+		page.Error = "Pick a skill name and a level between 1 and 5."
+	}
+
+	render(w, h.templates, "profile.html", page)
 }
 
 // UpdateBio saves the free-text bio field.
@@ -61,7 +70,7 @@ func (h *ProfileHandlers) UpdateBio(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/profile?saved=bio", http.StatusSeeOther)
 }
 
 // AddSkill lets a user rate themselves 1-5 on an existing or new skill.
@@ -71,7 +80,7 @@ func (h *ProfileHandlers) AddSkill(w http.ResponseWriter, r *http.Request) {
 	skillName := strings.TrimSpace(r.FormValue("skill_name"))
 	level, err := strconv.Atoi(r.FormValue("level"))
 	if skillName == "" || err != nil || level < 1 || level > 5 {
-		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+		http.Redirect(w, r, "/profile?error=badskill", http.StatusSeeOther)
 		return
 	}
 
@@ -84,5 +93,5 @@ func (h *ProfileHandlers) AddSkill(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/profile?saved=skill", http.StatusSeeOther)
 }

@@ -59,7 +59,7 @@ func (h *AuthHandlers) Register(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (h *AuthHandlers) LoginPage(w http.ResponseWriter, r *http.Request) {
@@ -84,7 +84,7 @@ func (h *AuthHandlers) Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+	http.Redirect(w, r, "/dashboard", http.StatusSeeOther)
 }
 
 func (h *AuthHandlers) Logout(w http.ResponseWriter, r *http.Request) {

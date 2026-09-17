@@ -1,0 +1,62 @@
+{{define "dashboard.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Dashboard — PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>Welcome back, {{.User.Name}}</h1>
+
+		<div class="stat-row">
+			<div class="stat-box">
+				<span class="stat-number">{{.SkillCount}}</span>
+				<span class="muted">skills rated</span>
+			</div>
+			<div class="stat-box">
+				<span class="stat-number">{{.TotalMatches}}</span>
+				<span class="muted">potential peers</span>
+			</div>
+		</div>
+
+		{{if eq .SkillCount 0}}
+		<section class="card">
+			<h2>Get started</h2>
+			<p>You haven't rated yourself on any skills yet, so PeerLoop can't find you any peers. Head to your profile and add at least one skill to get matched.</p>
+			<a href="/profile"><button type="button">Go to my profile</button></a>
+		</section>
+		{{else if eq .TotalMatches 0}}
+		<section class="card">
+			<h2>No peers yet</h2>
+			<p>Nobody else has rated themselves on any of your skills yet.</p>
+			<a href="/profile"><button type="button">Add more skills</button></a>
+		</section>
+		{{else}}
+		<section class="card">
+			<h2>Your top matches</h2>
+			<table>
+				<tr><th>Name</th><th>Skill</th><th>Suggests</th></tr>
+				{{range .TopMatches}}
+				<tr>
+					<td>{{.User.Name}}</td>
+					<td>{{.SkillName}}</td>
+					<td>
+						{{if gt .Gap 0}}They could teach you
+						{{else if lt .Gap 0}}You could teach them
+						{{else}}Similar level
+						{{end}}
+					</td>
+				</tr>
+				{{end}}
+			</table>
+			<a href="/peers"><button type="button">See all matches</button></a>
+		</section>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}
