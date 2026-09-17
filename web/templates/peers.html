@@ -1,0 +1,51 @@
+{{define "peers.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Find Peers — PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>Find a peer</h1>
+
+		<form method="GET" action="/peers" class="filter-form">
+			<label>Filter by skill
+				<select name="skill" onchange="this.form.submit()">
+					<option value="">All skills</option>
+					{{$current := .SkillFilter}}
+					{{range .AllSkills}}
+					<option value="{{.Name}}" {{if eq .Name $current}}selected{{end}}>{{.Name}}</option>
+					{{end}}
+				</select>
+			</label>
+		</form>
+
+		{{if .Matches}}
+		<table>
+			<tr><th>Name</th><th>Skill</th><th>Their level</th><th>Your level</th><th>Suggests</th></tr>
+			{{range .Matches}}
+			<tr>
+				<td>{{.User.Name}}<br><span class="muted">{{.User.Email}}</span></td>
+				<td>{{.SkillName}}</td>
+				<td>{{.TheirLevel}}</td>
+				<td>{{.MyLevel}}</td>
+				<td>
+					{{if gt .Gap 0}}They could teach you
+					{{else if lt .Gap 0}}You could teach them
+					{{else}}Similar level — good for pairing up
+					{{end}}
+				</td>
+			</tr>
+			{{end}}
+		</table>
+		{{else}}
+		<p class="muted">No matches yet. Rate yourself on a skill from your profile to see peers who share it.</p>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}

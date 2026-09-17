@@ -1,0 +1,25 @@
+{{define "register.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Join PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	<main class="container auth-container">
+		<a href="/" class="brand">PeerLoop</a>
+		<h1>Join PeerLoop</h1>
+		{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+		<form method="POST" action="/register">
+			<label>Name<input type="text" name="name" required></label>
+			<label>Email<input type="email" name="email" required></label>
+			<label>Password<input type="password" name="password" minlength="8" required></label>
+			<button type="submit">Create account</button>
+		</form>
+		<p>Already have an account? <a href="/login">Log in</a></p>
+	</main>
+</body>
+</html>
+{{end}}

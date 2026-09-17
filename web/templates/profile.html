@@ -1,0 +1,60 @@
+{{define "profile.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>My Profile — PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>{{.User.Name}}</h1>
+		<p class="muted">{{.User.Email}}</p>
+
+		<section class="card">
+			<h2>Bio</h2>
+			<form method="POST" action="/profile/bio">
+				<textarea name="bio" rows="3" placeholder="Tell other fellows what you're working on...">{{.User.Bio}}</textarea>
+				<button type="submit">Save bio</button>
+			</form>
+		</section>
+
+		<section class="card">
+			<h2>My skills</h2>
+			{{if .MySkills}}
+			<table>
+				<tr><th>Skill</th><th>Level</th></tr>
+				{{range .MySkills}}
+				<tr><td>{{.SkillName}}</td><td>{{.Level}} / 5</td></tr>
+				{{end}}
+			</table>
+			{{else}}
+			<p class="muted">You haven't rated yourself on any skills yet.</p>
+			{{end}}
+
+			<h3>Add or update a skill</h3>
+			<form method="POST" action="/profile/skills">
+				<label>Skill
+					<input type="text" name="skill_name" list="skill-options" placeholder="e.g. RAG" required>
+					<datalist id="skill-options">
+						{{range .AllSkills}}<option value="{{.Name}}">{{end}}
+					</datalist>
+				</label>
+				<label>Level (1 = just starting, 5 = could teach it)
+					<select name="level" required>
+						<option value="1">1</option>
+						<option value="2">2</option>
+						<option value="3">3</option>
+						<option value="4">4</option>
+						<option value="5">5</option>
+					</select>
+				</label>
+				<button type="submit">Save skill</button>
+			</form>
+		</section>
+	</main>
+</body>
+</html>
+{{end}}
