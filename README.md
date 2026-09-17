@@ -93,8 +93,7 @@ building next, in roughly this order):
 
 Each of these fits cleanly into the existing structure: a new table in
 `database.go`, a new store in `internal/store/`, a new handler file in
-`internal/handlers/`, and new routes in `main.go`. Happy to build the next
-one whenever you're ready.
+`internal/handlers/`, and new routes in `main.go`.
 
 ## Known simplifications (fine for learning, flag before "production")
 
