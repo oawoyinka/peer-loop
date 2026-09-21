@@ -1,0 +1,47 @@
+{{define "room_view.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{.Room.Name}} PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<p><a href="/rooms">&larr; All rooms</a></p>
+		<h1>{{.Room.Name}}</h1>
+		<p class="muted">{{.Room.Description}}</p>
+		<p class="muted">{{.Room.MemberCount}} member{{if ne .Room.MemberCount 1}}s{{end}}</p>
+
+		{{if not .IsMember}}
+		<form method="POST" action="/rooms/{{.Room.ID}}/join">
+			<button type="submit">Join room</button>
+		</form>
+		{{end}}
+
+		<div class="thread">
+			{{if .Posts}}
+				{{range .Posts}}
+				<div class="bubble {{if eq .UserID $.UserID}}mine{{else}}theirs{{end}}">
+					<span class="bubble-author">{{.AuthorName}}</span>
+					<p>{{.Body}}</p>
+					<span class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</span>
+				</div>
+				{{end}}
+			{{else}}
+			<p class="muted">No posts yet.</p>
+			{{end}}
+		</div>
+
+		{{if .IsMember}}
+		<form method="POST" action="/rooms/{{.Room.ID}}/posts" class="send-form">
+			<input type="text" name="body" placeholder="Share something with the room..." required>
+			<button type="submit">Post</button>
+		</form>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}

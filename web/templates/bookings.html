@@ -1,0 +1,74 @@
+{{define "bookings.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>My Sessions on PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>My Sessions</h1>
+		{{if .Success}}<p class="success">{{.Success}}</p>{{end}}
+		{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+		{{$me := .UserID}}
+		{{if .Bookings}}
+		<div class="list">
+			{{range .Bookings}}
+			<div class="card">
+				<div class="booking-head">
+					<strong>{{.SkillName}}</strong>
+					<span class="badge badge-{{.Status}}">{{.Status}}</span>
+				</div>
+				<p class="muted">
+					{{if eq .RequesterID $me}}With {{.Peer.Name}}{{else}}With {{.Requester.Name}}{{end}}
+					&middot; {{.ScheduledAt.Format "Jan 2, 2006 3:04 PM"}}
+				</p>
+
+				{{if eq .Status "pending"}}
+					{{if ne .RequesterID $me}}
+					<form method="POST" action="/bookings/{{.ID}}/confirm" class="inline-form">
+						<button type="submit">Confirm</button>
+					</form>
+					{{end}}
+					<form method="POST" action="/bookings/{{.ID}}/cancel" class="inline-form">
+						<button type="submit" class="secondary">Cancel</button>
+					</form>
+				{{end}}
+
+				{{if eq .Status "confirmed"}}
+					<p><a href="{{.MeetLink}}" target="_blank" rel="noopener">Join Google Meet &rarr;</a></p>
+					<form method="POST" action="/bookings/{{.ID}}/complete" class="inline-form">
+						<button type="submit">Mark completed</button>
+					</form>
+					<form method="POST" action="/bookings/{{.ID}}/cancel" class="inline-form">
+						<button type="submit" class="secondary">Cancel</button>
+					</form>
+				{{end}}
+
+				{{if eq .Status "completed"}}
+					{{if .Recap}}
+					<div class="recap">
+						<h4>AI Recap</h4>
+						<p>{{.Recap}}</p>
+					</div>
+					{{else}}
+					<form method="POST" action="/bookings/{{.ID}}/recap" class="inline-form">
+						<button type="submit" class="secondary">Generate AI recap</button>
+					</form>
+					{{end}}
+					<p><a href="/reviews/new/{{.ID}}">Leave a review</a></p>
+				{{end}}
+			</div>
+			{{end}}
+		</div>
+		{{else}}
+		<p class="muted">No sessions yet. Head to <a href="/peers">Find Peers</a> and book one with a match.</p>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}

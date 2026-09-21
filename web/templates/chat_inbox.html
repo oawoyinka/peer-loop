@@ -1,0 +1,31 @@
+{{define "chat_inbox.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Messages on PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>Messages</h1>
+		{{if .Conversations}}
+		<div class="list">
+			{{range .Conversations}}
+			<a class="list-item" href="/chat/{{.OtherUser.ID}}">
+				<div>
+					<strong>{{.OtherUser.Name}}</strong>
+					<p class="muted">{{if .LastFromMe}}You: {{end}}{{.LastBody}}</p>
+				</div>
+			</a>
+			{{end}}
+		</div>
+		{{else}}
+		<p class="muted">No conversations yet. Go to <a href="/peers">Find Peers</a> and message someone you're matched with.</p>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"peerloop/internal/aiclient"
 	"peerloop/internal/auth"
 	"peerloop/internal/database"
 	"peerloop/internal/handlers"
@@ -28,14 +29,31 @@ func main() {
 		log.Fatalf("failed to parse templates: %v", err)
 	}
 
+	// Stores
 	userStore := store.NewUserStore(db)
 	skillStore := store.NewSkillStore(db)
 	sessions := auth.NewSessionStore(db)
+	messageStore := store.NewMessageStore(db)
+	bookingStore := store.NewBookingStore(db)
+	roomStore := store.NewRoomStore(db)
+	pointsStore := store.NewPointsStore(db)
+	reviewStore := store.NewReviewStore(db)
+	aiClient := aiclient.NewClient()
 
+	if !aiClient.Available() {
+		log.Println("NOTE: ANTHROPIC_API_KEY is not set - AI session recaps will show a setup message instead of generating.")
+	}
+
+	// Handlers
 	authH := handlers.NewAuthHandlers(userStore, sessions, templates)
-	profileH := handlers.NewProfileHandlers(userStore, skillStore, templates)
+	profileH := handlers.NewProfileHandlers(userStore, skillStore, pointsStore, templates)
 	matchH := handlers.NewMatchHandlers(skillStore, templates)
-	dashboardH := handlers.NewDashboardHandlers(userStore, skillStore, templates)
+	dashboardH := handlers.NewDashboardHandlers(userStore, skillStore, pointsStore, templates)
+	chatH := handlers.NewChatHandlers(userStore, skillStore, messageStore, pointsStore, templates)
+	bookingH := handlers.NewBookingHandlers(bookingStore, skillStore, pointsStore, aiClient, templates)
+	roomH := handlers.NewRoomHandlers(roomStore, pointsStore, templates)
+	reviewH := handlers.NewReviewHandlers(reviewStore, bookingStore, pointsStore, templates)
+	leaderboardH := handlers.NewLeaderboardHandlers(pointsStore, templates)
 
 	requireAuth := middleware.RequireAuth(sessions)
 
@@ -54,12 +72,40 @@ func main() {
 	mux.HandleFunc("POST /login", authH.Login)
 	mux.HandleFunc("GET /logout", authH.Logout)
 
-	// Authenticated routes.
+	// Dashboard, profile, matching.
 	mux.HandleFunc("GET /dashboard", requireAuth(dashboardH.View))
 	mux.HandleFunc("GET /profile", requireAuth(profileH.View))
 	mux.HandleFunc("POST /profile/bio", requireAuth(profileH.UpdateBio))
 	mux.HandleFunc("POST /profile/skills", requireAuth(profileH.AddSkill))
 	mux.HandleFunc("GET /peers", requireAuth(matchH.Peers))
+
+	// Chat.
+	mux.HandleFunc("GET /chat", requireAuth(chatH.Inbox))
+	mux.HandleFunc("GET /chat/{userID}", requireAuth(chatH.Conversation))
+	mux.HandleFunc("POST /chat/{userID}/send", requireAuth(chatH.Send))
+
+	// Session booking + AI recaps.
+	mux.HandleFunc("GET /bookings", requireAuth(bookingH.List))
+	mux.HandleFunc("GET /book/{userID}", requireAuth(bookingH.New))
+	mux.HandleFunc("POST /book/{userID}", requireAuth(bookingH.Create))
+	mux.HandleFunc("POST /bookings/{id}/confirm", requireAuth(bookingH.Confirm))
+	mux.HandleFunc("POST /bookings/{id}/cancel", requireAuth(bookingH.Cancel))
+	mux.HandleFunc("POST /bookings/{id}/complete", requireAuth(bookingH.Complete))
+	mux.HandleFunc("POST /bookings/{id}/recap", requireAuth(bookingH.GenerateRecap))
+
+	// Reviews.
+	mux.HandleFunc("GET /reviews/new/{id}", requireAuth(reviewH.New))
+	mux.HandleFunc("POST /reviews/new/{id}", requireAuth(reviewH.Create))
+
+	// Community rooms.
+	mux.HandleFunc("GET /rooms", requireAuth(roomH.List))
+	mux.HandleFunc("POST /rooms", requireAuth(roomH.Create))
+	mux.HandleFunc("GET /rooms/{id}", requireAuth(roomH.View))
+	mux.HandleFunc("POST /rooms/{id}/join", requireAuth(roomH.Join))
+	mux.HandleFunc("POST /rooms/{id}/posts", requireAuth(roomH.Post))
+
+	// Points / leaderboard.
+	mux.HandleFunc("GET /leaderboard", requireAuth(leaderboardH.View))
 
 	log.Printf("PeerLoop listening on http://localhost:%s", port)
 	if err := http.ListenAndServe(":"+port, mux); err != nil {

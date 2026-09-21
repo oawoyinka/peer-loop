@@ -1,47 +1,46 @@
 # PeerLoop (Go)
 
-A Go rebuild of the PeerLoop prototype, starting with the MVP: registration,
-login, profile with self-rated skills, and peer matching by skill/level gap.
+A full Go rebuild of the PeerLoop prototype: auth, profiles, skill-based
+matching, chat, session booking with a Google Meet link, AI-generated
+session recaps, community rooms, a points/badges economy, and gated peer
+reviews.
 
 ## Stack
 
 - **Language:** Go, standard library `net/http` only (no web framework)
-- **Routing:** Go 1.22+ method-aware `http.ServeMux` (`"GET /profile"` style patterns)
+- **Routing:** Go 1.22+ method-aware `http.ServeMux` (`"GET /profile"` style patterns, `{id}` wildcards)
 - **Database:** SQLite via `modernc.org/sqlite` (pure Go, no CGo/gcc required)
-- **Auth:** bcrypt password hashing (`golang.org/x/crypto/bcrypt`) + server-side
-  sessions in a `sessions` table, referenced by an HttpOnly cookie
+- **Auth:** bcrypt password hashing + server-side sessions in a `sessions`
+  table, referenced by an HttpOnly cookie
+- **AI recaps:** direct calls to the Anthropic Messages API over
+  `net/http` (no SDK) — see `internal/aiclient/anthropic.go`
 - **Templates:** `html/template`, server-rendered pages, no JS framework
 
 ## Project layout
 
 ```
 peerloop/
-├── cmd/server/main.go        # entrypoint: wires DB, stores, handlers, routes
+├── cmd/server/main.go          # entrypoint: wires DB, stores, handlers, routes
 ├── internal/
-│   ├── database/              # connection + schema migration
-│   ├── models/                # plain structs shared across packages
-│   ├── store/                 # SQL queries (users, skills, matching)
-│   ├── auth/                  # password hashing + session cookies
-│   ├── handlers/               # HTTP handlers (one file per feature area)
-│   └── middleware/            # RequireAuth route guard
+│   ├── database/                # connection + full schema migration
+│   ├── models/                  # plain structs shared across packages
+│   ├── store/                   # SQL queries, one file per feature area:
+│   │   ├── user_store.go
+│   │   ├── skill_store.go        # skills, ratings, matching, IsMatch
+│   │   ├── message_store.go      # chat
+│   │   ├── booking_store.go      # session booking
+│   │   ├── room_store.go         # learning circles
+│   │   ├── points_store.go       # points + badges + leaderboard
+│   │   └── review_store.go       # peer reviews
+│   ├── aiclient/anthropic.go    # minimal Anthropic Messages API client
+│   ├── auth/                    # password hashing + session cookies
+│   ├── handlers/                # HTTP handlers, one file per feature area
+│   └── middleware/              # RequireAuth route guard
 ├── web/
-│   ├── templates/             # html/template pages + shared nav partial
+│   ├── templates/                # html/template pages + shared nav partial
 │   └── static/style.css
-└── data/                      # peerloop.db gets created here at runtime
+└── data/                         # peerloop.db gets created here at runtime
 ```
-
-## Why these choices
-
-- **modernc.org/sqlite** instead of `mattn/go-sqlite3`: the latter needs CGo
-  and a C compiler, which is one more thing to get right when you're just
-  starting out. modernc.org's driver is pure Go — `go build` just works.
-- **Standard library routing**: Go 1.22 added `"METHOD /path"` patterns and
-  `{param}` wildcards to `http.ServeMux`, which covers most of what a
-  framework like Gin gives you for a project this size. Worth learning the
-  primitives before reaching for a framework.
-- **Server-rendered HTML** rather than a JSON API + frontend framework: keeps
-  the whole request/response cycle in Go, which is the point of this
-  exercise. You can always add a JSON API alongside this later.
 
 ## Setup
 
@@ -50,57 +49,86 @@ peerloop/
    ```
    go mod tidy
    ```
-   This downloads `modernc.org/sqlite` and `golang.org/x/crypto` and writes
-   `go.sum`. (This step needs network access — it wasn't run when this
-   project was generated.)
-3. Run it:
+   Downloads `modernc.org/sqlite` and `golang.org/x/crypto`, writes `go.sum`.
+3. (Optional, for AI recaps) set your Anthropic API key:
+   ```
+   export ANTHROPIC_API_KEY=sk-ant-...
+   ```
+   Without this, the app still runs fine — clicking "Generate AI recap"
+   just shows a message telling you the key isn't set, instead of erroring.
+4. Run it:
    ```
    go run ./cmd/server
    ```
-4. Visit http://localhost:8080 — you'll land on the login page. Click
-   "Create an account" to register.
+5. Visit http://localhost:8080.
 
-The SQLite file is created automatically at `data/peerloop.db` the first
-time you run the server, along with a starter list of skills (Prompt
-Engineering, RAG, Fine-tuning, Go, Python, etc.) so the "add a skill"
-autocomplete isn't empty.
+## Feature tour
 
-## Trying the matching logic
+Register **two accounts** (e.g. one normal + one incognito window) to see
+matching, chat, and booking actually do something — most of this only
+lights up once two people share a skill.
 
-Matching only works between users who've both rated themselves on the
-*same* skill name. To see it in action:
+1. **Register / log in** → lands on **Dashboard**: your skill count,
+   potential-peer count, points, and top matches.
+2. **Profile**: add a bio, self-rate skills 1-5. Adding a skill earns
+   points.
+3. **Find Peers**: anyone who shares a skill with you, ranked by how big
+   the level gap is (biggest gaps = clearest teacher/learner pairing).
+   Each row has **Message** and **Book** links.
+4. **Messages**: 1:1 chat, restricted to people you're actually matched
+   with. Your first message to a given peer earns points.
+5. **My Sessions → Book**: propose a session (skill, date/time, notes).
+   A Google Meet link (`meet.google.com/new`) is attached automatically —
+   see the note on this below. The invited peer confirms or cancels;
+   either side can mark it **completed**, which unlocks recaps and reviews.
+6. **AI recap**: on a completed session, click "Generate AI recap" to have
+   Claude turn your session notes into a structured summary. Needs
+   `ANTHROPIC_API_KEY`.
+7. **Review**: after completion, either participant can leave a 1-5 rating
+   + comment about the other — one review per person per session.
+8. **Rooms**: create or join a topic-based learning circle with a shared
+   post feed.
+9. **Leaderboard**: points from adding skills, first messages, booking
+   and completing sessions, room posts, and leaving reviews. Badges are
+   derived thresholds (10 / 50 / 100 / 250 points), not separately stored.
 
-1. Register two accounts (e.g. in two browser tabs, or one normal + one
-   incognito, since sessions are cookie-based).
-2. On each, go to your profile and add the same skill (e.g. "RAG") at
-   different levels (say 4 and 1).
-3. Go to "Find Peers" on either account — you should see the other user
-   listed, with a note on who could teach whom based on the level gap.
+## Why these choices
 
-## What's deliberately not built yet
-
-This is the auth + profiles + skill-matching slice only, per the current
-scope. Not yet included (all present in the original prototype and worth
-building next, in roughly this order):
-
-1. **Chat** between matched peers
-2. **Session booking** with a Google Meet link attached
-3. **AI-generated call recaps** (would call the Anthropic API or similar
-   after a session)
-4. **Community rooms / learning circles**
-5. **Points, badges, and the leaderboard**
-6. **Peer reviews** restricted to people who actually had a session
-
-Each of these fits cleanly into the existing structure: a new table in
-`database.go`, a new store in `internal/store/`, a new handler file in
-`internal/handlers/`, and new routes in `main.go`.
+- **modernc.org/sqlite** instead of `mattn/go-sqlite3`: pure Go, no CGo/gcc
+  needed to build.
+- **Standard library routing**: Go 1.22's `"METHOD /path"` patterns and
+  `{param}` wildcards cover what a framework like Gin gives you at this
+  scale.
+- **Server-rendered HTML**: keeps the whole request/response cycle in Go.
+- **`meet.google.com/new` for session links**: this is a real Google URL
+  that starts a brand-new Meet call when opened by a signed-in Google
+  user — no OAuth/Calendar API setup needed to get booking working end to
+  end. The trade-off: it's the *same* link for every session rather than
+  a unique one tied to that specific booking, and it only auto-creates a
+  meeting for whoever's signed into a Google account in that browser. For
+  real per-session links, swap `generateMeetLink()` in
+  `internal/handlers/booking_handlers.go` for a call to the Google
+  Calendar API (`events.insert` with `conferenceData` set), which does
+  require OAuth.
+- **Points as a running total, not an event log**: `points` is a single
+  row per user updated with `total = total + N`. Simple and fast; the
+  trade-off is no history of *why* someone has however many points. If
+  you want an activity feed later, add a `point_events` table and switch
+  `PointsStore.Award` to insert there instead.
+- **Badges computed on the fly** from the point total (see
+  `store.Badges`), not stored — avoids a whole table for something
+  that's purely derived.
 
 ## Known simplifications (fine for learning, flag before "production")
 
-- Sessions never expire early (just after 7 days) — no "log out
-  everywhere" button yet.
-- No CSRF protection on forms yet.
+- Sessions (login) never expire early — no "log out everywhere" button.
+- No CSRF protection on forms.
 - No rate-limiting on login attempts.
-- `SetMaxOpenConns(1)` avoids SQLite locking issues but means only one
-  request touches the DB at a time — fine for a learning project, not for
-  real concurrent traffic (Postgres would remove this limit later).
+- `SetMaxOpenConns(1)` avoids SQLite locking issues but serializes all DB
+  access — fine for learning, not for real concurrent traffic.
+- Chat and room feeds are plain page reloads, not real-time (no
+  WebSockets/SSE) — sending a message redirects back to the same page.
+- The AI recap is generated from whatever you type into the "notes"
+  field when booking — there's no actual video/audio transcription of
+  the call itself.
+- Meet links are not unique per session (see above).

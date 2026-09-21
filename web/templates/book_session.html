@@ -1,0 +1,33 @@
+{{define "book_session.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Book a Session on PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>Propose a session</h1>
+		<p class="muted">A Google Meet link is generated automatically when you propose the session.</p>
+
+		<form method="POST" action="/book/{{.PeerID}}">
+			<label>Skill to focus on
+				<select name="skill_name" required>
+					{{range .SharedSkills}}<option value="{{.}}">{{.}}</option>{{end}}
+				</select>
+			</label>
+			<label>Date &amp; time
+				<input type="datetime-local" name="scheduled_at" required>
+			</label>
+			<label>Notes for this session (optional, helps if you generate an AI recap later)
+				<textarea name="notes" rows="3" placeholder="What do you want to cover?"></textarea>
+			</label>
+			<button type="submit">Propose session</button>
+		</form>
+	</main>
+</body>
+</html>
+{{end}}

@@ -55,6 +55,69 @@ func migrate(db *sql.DB) error {
 		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
 		expires_at DATETIME NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS messages (
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		sender_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		recipient_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		body         TEXT NOT NULL,
+		created_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id, recipient_id);
+	CREATE INDEX IF NOT EXISTS idx_messages_recipient ON messages(recipient_id, sender_id);
+
+	CREATE TABLE IF NOT EXISTS bookings (
+		id            INTEGER PRIMARY KEY AUTOINCREMENT,
+		requester_id  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		peer_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		skill_name    TEXT NOT NULL,
+		scheduled_at  DATETIME NOT NULL,
+		meet_link     TEXT NOT NULL DEFAULT '',
+		status        TEXT NOT NULL DEFAULT 'pending', -- pending | confirmed | cancelled | completed
+		notes         TEXT NOT NULL DEFAULT '',
+		recap         TEXT NOT NULL DEFAULT '',
+		created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS rooms (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		name        TEXT NOT NULL UNIQUE,
+		description TEXT NOT NULL DEFAULT '',
+		created_by  INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS room_members (
+		room_id   INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+		user_id   INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		joined_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		PRIMARY KEY (room_id, user_id)
+	);
+
+	CREATE TABLE IF NOT EXISTS room_posts (
+		id         INTEGER PRIMARY KEY AUTOINCREMENT,
+		room_id    INTEGER NOT NULL REFERENCES rooms(id) ON DELETE CASCADE,
+		user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		body       TEXT NOT NULL,
+		created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+	);
+
+	CREATE TABLE IF NOT EXISTS points (
+		user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+		total   INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE TABLE IF NOT EXISTS reviews (
+		id          INTEGER PRIMARY KEY AUTOINCREMENT,
+		booking_id  INTEGER NOT NULL REFERENCES bookings(id) ON DELETE CASCADE,
+		reviewer_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		reviewee_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		rating      INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+		comment     TEXT NOT NULL DEFAULT '',
+		created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+		UNIQUE (booking_id, reviewer_id)
+	);
 	`
 	if _, err := db.Exec(schema); err != nil {
 		return err

@@ -1,0 +1,39 @@
+{{define "chat_conversation.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>{{.OtherUser.Name}} PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<p><a href="/chat">&larr; All messages</a></p>
+		<h1>{{.OtherUser.Name}}</h1>
+		<p class="muted">
+			<a href="/book/{{.OtherUser.ID}}">Book a session</a>
+		</p>
+
+		<div class="thread">
+			{{if .Messages}}
+				{{range .Messages}}
+				<div class="bubble {{if .Mine}}mine{{else}}theirs{{end}}">
+					<p>{{.Body}}</p>
+					<span class="bubble-time">{{.CreatedAt.Format "Jan 2, 3:04 PM"}}</span>
+				</div>
+				{{end}}
+			{{else}}
+				<p class="muted">Say hello — you're matched on a shared skill.</p>
+			{{end}}
+		</div>
+
+		<form method="POST" action="/chat/{{.OtherUser.ID}}/send" class="send-form">
+			<input type="text" name="body" placeholder="Type a message..." required autofocus>
+			<button type="submit">Send</button>
+		</form>
+	</main>
+</body>
+</html>
+{{end}}

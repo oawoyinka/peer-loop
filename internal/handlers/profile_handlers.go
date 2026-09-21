@@ -14,11 +14,12 @@ import (
 type ProfileHandlers struct {
 	users     *store.UserStore
 	skills    *store.SkillStore
+	points    *store.PointsStore
 	templates *template.Template
 }
 
-func NewProfileHandlers(users *store.UserStore, skills *store.SkillStore, templates *template.Template) *ProfileHandlers {
-	return &ProfileHandlers{users: users, skills: skills, templates: templates}
+func NewProfileHandlers(users *store.UserStore, skills *store.SkillStore, points *store.PointsStore, templates *template.Template) *ProfileHandlers {
+	return &ProfileHandlers{users: users, skills: skills, points: points, templates: templates}
 }
 
 type profilePage struct {
@@ -93,5 +94,6 @@ func (h *ProfileHandlers) AddSkill(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "internal error", http.StatusInternalServerError)
 		return
 	}
+	_ = h.points.Award(userID, store.PointsForSkillAdded)
 	http.Redirect(w, r, "/profile?saved=skill", http.StatusSeeOther)
 }

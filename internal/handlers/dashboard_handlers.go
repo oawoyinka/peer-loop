@@ -12,18 +12,20 @@ import (
 type DashboardHandlers struct {
 	users     *store.UserStore
 	skills    *store.SkillStore
+	points    *store.PointsStore
 	templates *template.Template
 }
 
-func NewDashboardHandlers(users *store.UserStore, skills *store.SkillStore, templates *template.Template) *DashboardHandlers {
-	return &DashboardHandlers{users: users, skills: skills, templates: templates}
+func NewDashboardHandlers(users *store.UserStore, skills *store.SkillStore, points *store.PointsStore, templates *template.Template) *DashboardHandlers {
+	return &DashboardHandlers{users: users, skills: skills, points: points, templates: templates}
 }
 
 type dashboardPage struct {
-	User        models.User
-	SkillCount  int
-	TopMatches  []models.PeerMatch
+	User         models.User
+	SkillCount   int
+	TopMatches   []models.PeerMatch
 	TotalMatches int
+	Points       int
 }
 
 // View shows a summary landing page after login: who you are, how many
@@ -54,10 +56,17 @@ func (h *DashboardHandlers) View(w http.ResponseWriter, r *http.Request) {
 		top = top[:3]
 	}
 
+	points, err := h.points.Total(userID)
+	if err != nil {
+		http.Error(w, "internal error", http.StatusInternalServerError)
+		return
+	}
+
 	render(w, h.templates, "dashboard.html", dashboardPage{
 		User:         user,
 		SkillCount:   len(mySkills),
 		TopMatches:   top,
 		TotalMatches: len(allMatches),
+		Points:       points,
 	})
 }

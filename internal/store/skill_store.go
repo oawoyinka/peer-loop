@@ -86,6 +86,26 @@ func (s *SkillStore) ForUser(userID int64) ([]models.UserSkill, error) {
 	return out, rows.Err()
 }
 
+// IsMatch reports whether userID and otherID share at least one rated
+// skill, i.e. whether they're a legitimate match (used to gate features
+// like chat to people you're actually matched with).
+func (s *SkillStore) IsMatch(userID, otherID int64) (bool, error) {
+	var exists int
+	err := s.db.QueryRow(`
+		SELECT 1 FROM user_skills a
+		JOIN user_skills b ON a.skill_id = b.skill_id
+		WHERE a.user_id = ? AND b.user_id = ?
+		LIMIT 1
+	`, userID, otherID).Scan(&exists)
+	if err == sql.ErrNoRows {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // FindMatches is the core matching logic: for every skill the given user
 // has rated themselves on, find other users rated on the same skill,
 // ranked so the biggest level gaps (best teacher/learner pairings) come

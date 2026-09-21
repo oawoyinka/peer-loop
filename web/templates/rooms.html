@@ -1,0 +1,43 @@
+{{define "rooms.html"}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+	<title>Rooms on PeerLoop</title>
+	<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+	{{template "nav" .}}
+	<main class="container">
+		<h1>Learning circles</h1>
+		{{if .Error}}<p class="error">{{.Error}}</p>{{end}}
+
+		<section class="card">
+			<h2>Start a room</h2>
+			<form method="POST" action="/rooms">
+				<label>Name<input type="text" name="name" placeholder="e.g. RAG Study Group" required></label>
+				<label>What's it about?<textarea name="description" rows="2"></textarea></label>
+				<button type="submit">Create room</button>
+			</form>
+		</section>
+
+		{{if .Rooms}}
+		<div class="list">
+			{{range .Rooms}}
+			<a class="list-item" href="/rooms/{{.ID}}">
+				<div>
+					<strong>{{.Name}}</strong>
+					<p class="muted">{{.Description}}</p>
+					<span class="muted">{{.MemberCount}} member{{if ne .MemberCount 1}}s{{end}}</span>
+				</div>
+			</a>
+			{{end}}
+		</div>
+		{{else}}
+		<p class="muted">No rooms yet, be the first to start one.</p>
+		{{end}}
+	</main>
+</body>
+</html>
+{{end}}
