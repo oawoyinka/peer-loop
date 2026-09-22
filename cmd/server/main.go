@@ -2,6 +2,7 @@ package main
 
 import (
 	"html/template"
+	"io/fs"
 	"log"
 	"net/http"
 	"os"
@@ -12,19 +13,23 @@ import (
 	"peerloop/internal/handlers"
 	"peerloop/internal/middleware"
 	"peerloop/internal/store"
+	"peerloop/web"
 )
 
 func main() {
-	dbPath := getEnv("DB_PATH", "data/peerloop.db")
+	databaseURL := os.Getenv("DATABASE_URL")
+	if databaseURL == "" {
+		log.Fatal("DATABASE_URL is not set. Example: postgres://user:pass@host:5432/dbname?sslmode=require")
+	}
 	port := getEnv("PORT", "8080")
 
-	db, err := database.Open(dbPath)
+	db, err := database.Open(databaseURL)
 	if err != nil {
 		log.Fatalf("failed to open database: %v", err)
 	}
 	defer db.Close()
 
-	templates, err := template.ParseGlob("web/templates/*.html")
+	templates, err := template.ParseFS(web.Templates, "templates/*.html")
 	if err != nil {
 		log.Fatalf("failed to parse templates: %v", err)
 	}
@@ -59,8 +64,12 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	// Static assets.
-	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.Dir("web/static"))))
+	// Static assets (embedded into the binary — see web/embed.go).
+	staticFS, err := fs.Sub(web.Static, "static")
+	if err != nil {
+		log.Fatalf("failed to load embedded static assets: %v", err)
+	}
+	mux.Handle("GET /static/", http.StripPrefix("/static/", http.FileServer(http.FS(staticFS))))
 
 	// Public routes.
 	mux.HandleFunc("GET /", func(w http.ResponseWriter, r *http.Request) {

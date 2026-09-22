@@ -37,25 +37,25 @@ func (s *SkillStore) ListAll() ([]models.Skill, error) {
 // exist yet (lets users add a skill that isn't in the seed list).
 func (s *SkillStore) GetOrCreateByName(name string) (int64, error) {
 	var id int64
-	err := s.db.QueryRow(`SELECT id FROM skills WHERE name = ?`, name).Scan(&id)
+	err := s.db.QueryRow(`SELECT id FROM skills WHERE name = $1`, name).Scan(&id)
 	if err == nil {
 		return id, nil
 	}
 	if err != sql.ErrNoRows {
 		return 0, err
 	}
-	res, err := s.db.Exec(`INSERT INTO skills (name) VALUES (?)`, name)
+	err = s.db.QueryRow(`INSERT INTO skills (name) VALUES ($1) RETURNING id`, name).Scan(&id)
 	if err != nil {
 		return 0, err
 	}
-	return res.LastInsertId()
+	return id, nil
 }
 
 // SetUserSkill upserts a user's self-rated level (1-5) for a skill.
 func (s *SkillStore) SetUserSkill(userID, skillID int64, level int) error {
 	_, err := s.db.Exec(`
 		INSERT INTO user_skills (user_id, skill_id, level)
-		VALUES (?, ?, ?)
+		VALUES ($1, $2, $3)
 		ON CONFLICT (user_id, skill_id) DO UPDATE SET level = excluded.level
 	`, userID, skillID, level)
 	return err
@@ -67,7 +67,7 @@ func (s *SkillStore) ForUser(userID int64) ([]models.UserSkill, error) {
 		SELECT us.user_id, us.skill_id, sk.name, us.level
 		FROM user_skills us
 		JOIN skills sk ON sk.id = us.skill_id
-		WHERE us.user_id = ?
+		WHERE us.user_id = $1
 		ORDER BY sk.name
 	`, userID)
 	if err != nil {
@@ -94,7 +94,7 @@ func (s *SkillStore) IsMatch(userID, otherID int64) (bool, error) {
 	err := s.db.QueryRow(`
 		SELECT 1 FROM user_skills a
 		JOIN user_skills b ON a.skill_id = b.skill_id
-		WHERE a.user_id = ? AND b.user_id = ?
+		WHERE a.user_id = $1 AND b.user_id = $2
 		LIMIT 1
 	`, userID, otherID).Scan(&exists)
 	if err == sql.ErrNoRows {
@@ -118,11 +118,11 @@ func (s *SkillStore) FindMatches(userID int64, skillFilter string) ([]models.Pee
 			ON other.skill_id = mine.skill_id AND other.user_id != mine.user_id
 		JOIN users u ON u.id = other.user_id
 		JOIN skills sk ON sk.id = mine.skill_id
-		WHERE mine.user_id = ?
+		WHERE mine.user_id = $1
 	`
 	args := []any{userID}
 	if skillFilter != "" {
-		query += ` AND sk.name = ?`
+		query += ` AND sk.name = $2`
 		args = append(args, skillFilter)
 	}
 	query += ` ORDER BY ABS(other.level - mine.level) DESC, sk.name`

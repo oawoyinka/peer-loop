@@ -17,7 +17,7 @@ func NewMessageStore(db *sql.DB) *MessageStore {
 // Send records a message from senderID to recipientID.
 func (s *MessageStore) Send(senderID, recipientID int64, body string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO messages (sender_id, recipient_id, body) VALUES (?, ?, ?)`,
+		`INSERT INTO messages (sender_id, recipient_id, body) VALUES ($1, $2, $3)`,
 		senderID, recipientID, body,
 	)
 	return err
@@ -29,10 +29,10 @@ func (s *MessageStore) Thread(userID, otherID int64) ([]models.Message, error) {
 	rows, err := s.db.Query(`
 		SELECT id, sender_id, recipient_id, body, created_at
 		FROM messages
-		WHERE (sender_id = ? AND recipient_id = ?)
-		   OR (sender_id = ? AND recipient_id = ?)
+		WHERE (sender_id = $1 AND recipient_id = $2)
+		   OR (sender_id = $2 AND recipient_id = $1)
 		ORDER BY created_at ASC, id ASC
-	`, userID, otherID, otherID, userID)
+	`, userID, otherID)
 	if err != nil {
 		return nil, err
 	}
@@ -53,13 +53,11 @@ func (s *MessageStore) Thread(userID, otherID int64) ([]models.Message, error) {
 // Conversations returns one row per person userID has exchanged messages
 // with, newest conversation first, with a preview of the last message.
 func (s *MessageStore) Conversations(userID int64) ([]models.ConversationSummary, error) {
-	// For each distinct other party, pull the most recent message's
-	// rowid via a correlated subquery, then join to get their details.
 	rows, err := s.db.Query(`
 		WITH parties AS (
-			SELECT recipient_id AS other_id FROM messages WHERE sender_id = ?
+			SELECT recipient_id AS other_id FROM messages WHERE sender_id = $1
 			UNION
-			SELECT sender_id AS other_id FROM messages WHERE recipient_id = ?
+			SELECT sender_id AS other_id FROM messages WHERE recipient_id = $1
 		)
 		SELECT
 			u.id, u.name, u.email, u.bio,
@@ -68,13 +66,13 @@ func (s *MessageStore) Conversations(userID int64) ([]models.ConversationSummary
 		JOIN users u ON u.id = p.other_id
 		JOIN messages m ON m.id = (
 			SELECT id FROM messages
-			WHERE (sender_id = ? AND recipient_id = p.other_id)
-			   OR (sender_id = p.other_id AND recipient_id = ?)
+			WHERE (sender_id = $1 AND recipient_id = p.other_id)
+			   OR (sender_id = p.other_id AND recipient_id = $1)
 			ORDER BY created_at DESC, id DESC
 			LIMIT 1
 		)
 		ORDER BY m.created_at DESC
-	`, userID, userID, userID, userID)
+	`, userID)
 	if err != nil {
 		return nil, err
 	}

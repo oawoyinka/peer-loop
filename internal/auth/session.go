@@ -33,7 +33,7 @@ func (s *SessionStore) Create(w http.ResponseWriter, userID int64) error {
 	expires := time.Now().Add(sessionTTL)
 
 	_, err = s.db.Exec(
-		`INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)`,
+		`INSERT INTO sessions (token, user_id, expires_at) VALUES ($1, $2, $3)`,
 		token, userID, expires,
 	)
 	if err != nil {
@@ -63,7 +63,7 @@ func (s *SessionStore) UserIDFromRequest(r *http.Request) (int64, error) {
 	var userID int64
 	var expiresAt time.Time
 	err = s.db.QueryRow(
-		`SELECT user_id, expires_at FROM sessions WHERE token = ?`,
+		`SELECT user_id, expires_at FROM sessions WHERE token = $1`,
 		cookie.Value,
 	).Scan(&userID, &expiresAt)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -82,7 +82,7 @@ func (s *SessionStore) UserIDFromRequest(r *http.Request) (int64, error) {
 // the cookie on the client.
 func (s *SessionStore) Destroy(w http.ResponseWriter, r *http.Request) {
 	if cookie, err := r.Cookie(cookieName); err == nil {
-		_, _ = s.db.Exec(`DELETE FROM sessions WHERE token = ?`, cookie.Value)
+		_, _ = s.db.Exec(`DELETE FROM sessions WHERE token = $1`, cookie.Value)
 	}
 	http.SetCookie(w, &http.Cookie{
 		Name:     cookieName,

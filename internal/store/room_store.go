@@ -19,18 +19,15 @@ func NewRoomStore(db *sql.DB) *RoomStore {
 
 // Create makes a new room and automatically joins the creator to it.
 func (s *RoomStore) Create(name, description string, createdBy int64) (int64, error) {
-	res, err := s.db.Exec(
-		`INSERT INTO rooms (name, description, created_by) VALUES (?, ?, ?)`,
+	var roomID int64
+	err := s.db.QueryRow(
+		`INSERT INTO rooms (name, description, created_by) VALUES ($1, $2, $3) RETURNING id`,
 		name, description, createdBy,
-	)
+	).Scan(&roomID)
 	if err != nil {
 		if isUniqueConstraintErr(err) {
 			return 0, ErrRoomNameTaken
 		}
-		return 0, err
-	}
-	roomID, err := res.LastInsertId()
-	if err != nil {
 		return 0, err
 	}
 	if err := s.Join(roomID, createdBy); err != nil {
@@ -71,7 +68,7 @@ func (s *RoomStore) Get(id int64) (models.Room, error) {
 	err := s.db.QueryRow(`
 		SELECT r.id, r.name, r.description, r.created_by, r.created_at,
 		       (SELECT COUNT(*) FROM room_members WHERE room_id = r.id) AS member_count
-		FROM rooms r WHERE r.id = ?
+		FROM rooms r WHERE r.id = $1
 	`, id).Scan(&rm.ID, &rm.Name, &rm.Description, &rm.CreatedBy, &rm.CreatedAt, &rm.MemberCount)
 	if errors.Is(err, sql.ErrNoRows) {
 		return rm, ErrNotFound
@@ -82,7 +79,7 @@ func (s *RoomStore) Get(id int64) (models.Room, error) {
 // Join adds userID as a member of roomID (idempotent).
 func (s *RoomStore) Join(roomID, userID int64) error {
 	_, err := s.db.Exec(
-		`INSERT OR IGNORE INTO room_members (room_id, user_id) VALUES (?, ?)`,
+		`INSERT INTO room_members (room_id, user_id) VALUES ($1, $2) ON CONFLICT (room_id, user_id) DO NOTHING`,
 		roomID, userID,
 	)
 	return err
@@ -92,7 +89,7 @@ func (s *RoomStore) Join(roomID, userID int64) error {
 func (s *RoomStore) IsMember(roomID, userID int64) (bool, error) {
 	var exists int
 	err := s.db.QueryRow(
-		`SELECT 1 FROM room_members WHERE room_id = ? AND user_id = ?`,
+		`SELECT 1 FROM room_members WHERE room_id = $1 AND user_id = $2`,
 		roomID, userID,
 	).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -104,7 +101,7 @@ func (s *RoomStore) IsMember(roomID, userID int64) (bool, error) {
 // Post adds a message to a room's shared feed.
 func (s *RoomStore) Post(roomID, userID int64, body string) error {
 	_, err := s.db.Exec(
-		`INSERT INTO room_posts (room_id, user_id, body) VALUES (?, ?, ?)`,
+		`INSERT INTO room_posts (room_id, user_id, body) VALUES ($1, $2, $3)`,
 		roomID, userID, body,
 	)
 	return err
@@ -116,7 +113,7 @@ func (s *RoomStore) Feed(roomID int64) ([]models.RoomPost, error) {
 		SELECT rp.id, rp.room_id, rp.user_id, u.name, rp.body, rp.created_at
 		FROM room_posts rp
 		JOIN users u ON u.id = rp.user_id
-		WHERE rp.room_id = ?
+		WHERE rp.room_id = $1
 		ORDER BY rp.created_at ASC, rp.id ASC
 	`, roomID)
 	if err != nil {

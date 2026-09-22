@@ -24,7 +24,7 @@ func NewReviewStore(db *sql.DB) *ReviewStore {
 func (s *ReviewStore) Create(bookingID, reviewerID, revieweeID int64, rating int, comment string) error {
 	_, err := s.db.Exec(`
 		INSERT INTO reviews (booking_id, reviewer_id, reviewee_id, rating, comment)
-		VALUES (?, ?, ?, ?, ?)
+		VALUES ($1, $2, $3, $4, $5)
 	`, bookingID, reviewerID, revieweeID, rating, comment)
 	if err != nil && isUniqueConstraintErr(err) {
 		return ErrAlreadyReviewed
@@ -37,7 +37,7 @@ func (s *ReviewStore) Create(bookingID, reviewerID, revieweeID int64, rating int
 func (s *ReviewStore) ForUser(userID int64) ([]models.Review, error) {
 	rows, err := s.db.Query(`
 		SELECT id, booking_id, reviewer_id, reviewee_id, rating, comment, created_at
-		FROM reviews WHERE reviewee_id = ?
+		FROM reviews WHERE reviewee_id = $1
 		ORDER BY created_at DESC
 	`, userID)
 	if err != nil {
@@ -58,7 +58,7 @@ func (s *ReviewStore) ForUser(userID int64) ([]models.Review, error) {
 
 // AverageRating returns userID's average rating and review count.
 func (s *ReviewStore) AverageRating(userID int64) (avg float64, count int, err error) {
-	row := s.db.QueryRow(`SELECT COALESCE(AVG(rating), 0), COUNT(*) FROM reviews WHERE reviewee_id = ?`, userID)
+	row := s.db.QueryRow(`SELECT COALESCE(AVG(rating), 0), COUNT(*) FROM reviews WHERE reviewee_id = $1`, userID)
 	err = row.Scan(&avg, &count)
 	if errors.Is(err, sql.ErrNoRows) {
 		return 0, 0, nil
@@ -70,7 +70,7 @@ func (s *ReviewStore) AverageRating(userID int64) (avg float64, count int, err e
 func (s *ReviewStore) HasReviewed(bookingID, reviewerID int64) (bool, error) {
 	var exists int
 	err := s.db.QueryRow(
-		`SELECT 1 FROM reviews WHERE booking_id = ? AND reviewer_id = ?`,
+		`SELECT 1 FROM reviews WHERE booking_id = $1 AND reviewer_id = $2`,
 		bookingID, reviewerID,
 	).Scan(&exists)
 	if errors.Is(err, sql.ErrNoRows) {

@@ -9,12 +9,12 @@ import (
 // Point values for qualifying actions, exported so handlers can reference
 // them (and so it's obvious where to tune the economy).
 const (
-	PointsForSkillAdded     = 5
-	PointsForFirstMessage   = 2
-	PointsForSessionBooked  = 5
-	PointsForSessionDone    = 20
-	PointsForRoomPost       = 3
-	PointsForReviewGiven    = 10
+	PointsForSkillAdded    = 5
+	PointsForFirstMessage  = 2
+	PointsForSessionBooked = 5
+	PointsForSessionDone   = 20
+	PointsForRoomPost      = 3
+	PointsForReviewGiven   = 10
 )
 
 type PointsStore struct {
@@ -30,8 +30,8 @@ func NewPointsStore(db *sql.DB) *PointsStore {
 // nothing currently does.
 func (s *PointsStore) Award(userID int64, amount int) error {
 	_, err := s.db.Exec(`
-		INSERT INTO points (user_id, total) VALUES (?, ?)
-		ON CONFLICT (user_id) DO UPDATE SET total = total + excluded.total
+		INSERT INTO points (user_id, total) VALUES ($1, $2)
+		ON CONFLICT (user_id) DO UPDATE SET total = points.total + excluded.total
 	`, userID, amount)
 	return err
 }
@@ -39,7 +39,7 @@ func (s *PointsStore) Award(userID int64, amount int) error {
 // Total returns userID's current point total (0 if they have no row yet).
 func (s *PointsStore) Total(userID int64) (int, error) {
 	var total int
-	err := s.db.QueryRow(`SELECT total FROM points WHERE user_id = ?`, userID).Scan(&total)
+	err := s.db.QueryRow(`SELECT total FROM points WHERE user_id = $1`, userID).Scan(&total)
 	if err == sql.ErrNoRows {
 		return 0, nil
 	}
@@ -54,7 +54,7 @@ func (s *PointsStore) Leaderboard(limit int) ([]models.LeaderboardEntry, error) 
 		JOIN users u ON u.id = p.user_id
 		WHERE p.total > 0
 		ORDER BY p.total DESC, u.name ASC
-		LIMIT ?
+		LIMIT $1
 	`, limit)
 	if err != nil {
 		return nil, err

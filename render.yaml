@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: peerloop
+    runtime: go
+    plan: free
+    buildCommand: go build -o bin/server ./cmd/server
+    startCommand: ./bin/server
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
